@@ -884,3 +884,37 @@ def test_options_might_be_shared_both_way():
 
     assert t1.called
     assert t2.called
+
+def test_options_in_option_group_are_available_to_all_tasks():
+    tasks.register_cmdoptsgroup("abc",
+        ('foo=', 'f', "Foo!"),
+        ('bar=', 'b', "Bar!"))
+    
+    @tasks.task
+    @tasks.cmdoptsgroup("abc")
+    def task1(options):
+        foo = options.task1.foo
+        bar = options.task1.bar
+        assert foo == "1" and bar == "2"
+
+    @tasks.task
+    @tasks.needs("task1", "task3")
+    @tasks.cmdoptsgroup("abc")
+    def task2(options):
+        foo = options.task2.foo
+        bar = options.task2.bar
+        assert foo == "1" and bar == "2"
+
+    @tasks.task
+    @tasks.needs("task1")
+    @tasks.cmdoptsgroup("abc")
+    def task3(options):
+        foo = options.task3.foo
+        bar = options.task3.bar
+        assert foo == "1" and bar == "2"
+
+    environment = _set_environment(task1=task1, task2=task2, task3=task3)
+    tasks._process_commands("task2 --foo 1 -b 2".split())
+    assert task1.called
+    assert task2.called
+    assert task3.called

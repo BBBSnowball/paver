@@ -594,6 +594,52 @@ def cmdopts(options, share_with=None):
         return func
     return entangle
 
+class _CmdOptsGroups(object):
+    _groups = {}
+
+    @classmethod
+    def register_group(cls, name, *options):
+        if name in cls._groups:
+            raise Exception("Group %s already registered" % name)
+
+        cls._groups[name] = {
+            'name':    name,
+            'tasks':   [],
+            'options': options
+        }
+
+    @classmethod
+    def add_task_to_group(cls, new_task, group_name):
+        if group_name not in cls._groups:
+            raise Exception("Invalid group name: %s" % group_name)
+        
+        group = cls._groups[group_name]
+        other_tasks = group['tasks']
+
+        for task2 in other_tasks:
+            task(task2).share_options_with.append(new_task)
+
+        share_with = map(lambda x: task(x).name, other_tasks)
+
+        other_tasks.append(new_task)
+
+        return cmdopts(group['options'], share_with=share_with)(new_task)
+
+def register_cmdoptsgroup(name, *options):
+    """Registers a group of shared command line options that can be used
+    with cmdoptsgroup.
+    """
+    _CmdOptsGroups.register_group(name, *options)
+
+def cmdoptsgroup(group_name):
+    """Sets the command line options of an option group to this task. You
+    have to register the option group using register_cmdoptsgroup before
+    you can set it for a task.
+    """
+    def entangle(task):
+        return _CmdOptsGroups.add_task_to_group(task, group_name)
+    return entangle
+
 def might_call(*args):
     """
 
