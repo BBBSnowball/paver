@@ -42,7 +42,7 @@ else:
         else:
             # 64-bit
             MAXSIZE = int((1 << 63) - 1)
-            del X
+        del X
 
 
 def _add_doc(func, doc):
