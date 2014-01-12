@@ -600,7 +600,13 @@ class _CmdOptsGroups(object):
     @classmethod
     def register_group(cls, name, *options):
         if name in cls._groups:
-            raise Exception("Group %s already registered" % name)
+            # Paver runs the pavement.py file more than once, so a group might
+            # be registered more than once. However, we can at least make sure
+            # that the definition is the same.
+            #TODO Can we avoid it running the file a second time?
+            #TODO The tasks will also be registered more than once...
+            if cls._groups[name]['options'] != options:
+                raise Exception("Group %s already registered" % name)
 
         cls._groups[name] = {
             'name':    name,
