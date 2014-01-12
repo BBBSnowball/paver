@@ -640,13 +640,17 @@ class _CmdOptsGroups(object):
         return cmdopts(group['options'], share_with=share_with)(new_task)
 
 class CmdOptsGroupProxy(object):
-    __slots__ = "_option_names"
-    def __init__(self, option_names):
-        self._option_names = option_names
+    __slots__ = "_default_values"
+    def __init__(self, default_values):
+        self._default_values = default_values
 
     def __getattr__(self, name):
-        if name in self._option_names:
-            return environment.options[environment.inner_task_in_progress.replace("pavement.", "")][name]
+        if name in self._default_values:
+            task_options = environment.options[environment.inner_task_in_progress.replace("pavement.", "")]
+            if name in task_options:
+                return task_options[name]
+            else:
+                return self._default_values[name]
         else:
             raise AttributeError("%r is not one of the available options (%s)" % (name, ", ".join(self._option_names)))
 
@@ -657,9 +661,22 @@ def register_cmdoptsgroup(name, *options):
     """Registers a group of shared command line options that can be used
     with cmdoptsgroup.
     """
-    _CmdOptsGroups.register_group(name, *options)
+    if len(options) > 0 and isinstance(options[-1], dict):
+        default_values = options[-1]
+        options = options[0:-1]
+    else:
+        default_values = {}
 
-    return CmdOptsGroupProxy(map(lambda option: option[0].replace("=", "").replace("-", "_"), options))
+    option_specs = map(lambda opt: opt[0:3], options)
+    _CmdOptsGroups.register_group(name, *option_specs)
+
+    for option_spec in options:
+        name = option_spec[0].replace("=", "").replace("-", "_")
+        if len(option_spec) >= 4:
+            default_values[name] = option_spec[3]
+        elif name not in default_values:
+            default_values[name] = None
+    return CmdOptsGroupProxy(default_values)
 
 def cmdoptsgroup(group_name):
     """Sets the command line options of an option group to this task. You
