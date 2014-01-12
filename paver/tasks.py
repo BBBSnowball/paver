@@ -623,7 +623,7 @@ class _CmdOptsGroups(object):
         other_tasks = group['tasks']
 
         for task2 in other_tasks:
-            task(task2).share_options_with.append(new_task)
+            task(task2).share_options_with.append(task(new_task).name)
 
         share_with = map(lambda x: task(x).name, other_tasks)
 
