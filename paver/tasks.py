@@ -32,6 +32,7 @@ class BuildFailure(Exception):
 
 class Environment(object):
     _task_in_progress = None
+    _tasks_in_progress = []
     _task_output = None
     _all_tasks = None
     _dry_run = False
@@ -39,6 +40,9 @@ class Environment(object):
     interactive = False
     quiet = False
     _file = "pavement.py"
+
+    toplevel_task_in_progress = property(lambda self: self._task_in_progress)
+    inner_task_in_progress = property(lambda self: self._tasks_in_progress[-1])
 
     def __init__(self, pavement=None):
         self.pavement = pavement
@@ -178,18 +182,22 @@ class Environment(object):
         else:
             running_top_level = False
         def do_task():
-            self.info("---> " + task_name)
-            for req in needs:
-                task = self.get_task(req)
-                if not task:
-                    raise PavementError("Requirement %s for task %s not found" %
-                        (req, task_name))
-                if not isinstance(task, Task):
-                    raise PavementError("Requirement %s for task %s is not a Task"
-                        % (req, task_name))
-                if not task.called:
-                    task()
-            return func(**kw)
+            self._tasks_in_progress.append(task_name)
+            try:
+                self.info("---> " + task_name)
+                for req in needs:
+                    task = self.get_task(req)
+                    if not task:
+                        raise PavementError("Requirement %s for task %s not found" %
+                            (req, task_name))
+                    if not isinstance(task, Task):
+                        raise PavementError("Requirement %s for task %s is not a Task"
+                            % (req, task_name))
+                    if not task.called:
+                        task()
+                return func(**kw)
+            finally:
+                del self._tasks_in_progress[-1]
         if running_top_level:
             try:
                 return do_task()
@@ -631,11 +639,27 @@ class _CmdOptsGroups(object):
 
         return cmdopts(group['options'], share_with=share_with)(new_task)
 
+class CmdOptsGroupProxy(object):
+    __slots__ = "_option_names"
+    def __init__(self, option_names):
+        self._option_names = option_names
+
+    def __getattr__(self, name):
+        if name in self._option_names:
+            return environment.options[environment.inner_task_in_progress.replace("pavement.", "")][name]
+        else:
+            raise AttributeError("%r is not one of the available options (%s)" % (name, ", ".join(self._option_names)))
+
+    def str(self):
+        return "CmdOptsGroupProxy(%s)" % (", ".join(self._option_names))
+
 def register_cmdoptsgroup(name, *options):
     """Registers a group of shared command line options that can be used
     with cmdoptsgroup.
     """
     _CmdOptsGroups.register_group(name, *options)
+
+    return CmdOptsGroupProxy(map(lambda option: option[0].replace("=", "").replace("-", "_"), options))
 
 def cmdoptsgroup(group_name):
     """Sets the command line options of an option group to this task. You
