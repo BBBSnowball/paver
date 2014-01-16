@@ -626,12 +626,14 @@ class _CmdOptsGroups(object):
     def add_task_to_group(cls, new_task, group_name):
         if group_name not in cls._groups:
             raise Exception("Invalid group name: %s" % group_name)
+
+        new_task = task(new_task)
         
         group = cls._groups[group_name]
         other_tasks = group['tasks']
 
         for task2 in other_tasks:
-            task(task2).share_options_with.append(task(new_task).name)
+            task(task2).share_options_with.append(new_task.name)
 
         share_with = map(lambda x: task(x).name, other_tasks)
 
