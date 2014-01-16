@@ -956,6 +956,8 @@ def _launch_pavement(args):
         mod.__dict__.update(resident_tasks)
 
         _process_commands(args, auto_pending=auto_pending)
+
+        return 0
     except PavementError:
         e = sys.exc_info()[1]
         # this is hacky, but it is needed if problem would occur within
@@ -966,6 +968,8 @@ def _launch_pavement(args):
         print_("\n\n*** Problem with pavement:\n%s\n%s\n\n" % (
                     abspath(environment.pavement_file), e))
 
+        return 1
+
 def main(args=None):
     global environment
     if args is None:
@@ -975,7 +979,7 @@ def main(args=None):
     # need to parse args to recover pavement-file to read before executing
     try:
         args = _parse_global_options(args)
-        _launch_pavement(args)
+        return _launch_pavement(args)
     except BuildFailure:
         e = sys.exc_info()[1]
         environment.error("Build failed: %s", e)
